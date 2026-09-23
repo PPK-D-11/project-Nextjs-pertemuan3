@@ -1,13 +1,15 @@
 // use prisma-8
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  username  String?
-  name      String?
-  posts     Post[]
-  createdAt TimestamptzString @default(now())
-  updatedAt temporal.updatedAtString()
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  password     String
+  username     String?
+  name         String?
+  posts        Post[]
+  transactions Transaction[]
+  createdAt    TimestamptzString @default(now())
+  updatedAt    temporal.updatedAtString()
 }
 
 model Post {
@@ -18,4 +20,15 @@ model Post {
   authorId  Int
   createdAt TimestamptzString @default(now())
   updatedAt temporal.updatedAtString()
+}
+
+model Transaction {
+  id          Int      @id @default(autoincrement())
+  type        String
+  amount      Int
+  description String?
+  userId      Int
+  createdAt   TimestamptzString @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }
