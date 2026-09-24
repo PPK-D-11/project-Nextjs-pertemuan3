@@ -4,11 +4,12 @@ import { db } from "../../../src/prisma/db";
 
 export async function POST(request: Request) {
   try {
-    const { email, password } = await request.json();
+    const { name, email, password } = await request.json();
 
-    if (!email || !password) {
+    // Validasi input
+    if (!name || !email || !password) {
       return NextResponse.json(
-        { message: "Email dan password wajib diisi" },
+        { message: "Nama, email, dan password wajib diisi" },
         { status: 400 }
       );
     }
@@ -35,8 +36,9 @@ export async function POST(request: Request) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Simpan user ke PostgreSQL Neon
+    // Simpan user ke PostgreSQL
     const user = await db.orm.public.User.create({
+      name,
       email,
       password: hashedPassword,
     });
@@ -46,6 +48,7 @@ export async function POST(request: Request) {
         message: "Register berhasil",
         user: {
           id: user.id,
+          name: user.name,
           email: user.email,
         },
       },

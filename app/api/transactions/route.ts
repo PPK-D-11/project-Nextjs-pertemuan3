@@ -1,27 +1,49 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+import { db } from "../../../src/prisma/db";
 
-const secret = new TextEncoder().encode(
-  process.env.SESSION_SECRET || "expense-tracker-secret"
-);
+async function getCurrentUserId() {
+  const sessionSecret = process.env.SESSION_SECRET;
 
-// Penyimpanan sementara
-const transactions: any[] = [];
+  if (!sessionSecret) {
+    throw new Error("SESSION_SECRET belum dikonfigurasi");
+  }
 
+  const cookieStore = await cookies();
+  const token = cookieStore.get("session")?.value;
+
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const secret = new TextEncoder().encode(sessionSecret);
+    const { payload } = await jwtVerify(token, secret);
+
+    const userId = Number(payload.userId);
+
+    if (!userId || Number.isNaN(userId)) {
+      return null;
+    }
+
+    return userId;
+  } catch {
+    return null;
+  }
+}
+
+// CREATE TRANSACTION
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("session")?.value;
+    const userId = await getCurrentUserId();
 
-    if (!token) {
+    if (!userId) {
       return NextResponse.json(
         { message: "Unauthorized" },
         { status: 401 }
       );
     }
-
-    const { payload } = await jwtVerify(token, secret);
 
     const body = await request.json();
 
@@ -37,16 +59,28 @@ export async function POST(request: Request) {
       );
     }
 
-    const transaction = {
-      id: Date.now(),
-      user: payload.email,
+    if (type !== "INCOME" && type !== "EXPENSE") {
+      return NextResponse.json(
+        { message: "Jenis transaksi harus INCOME atau EXPENSE" },
+        { status: 400 }
+      );
+    }
+
+    if (amount <= 0) {
+      return NextResponse.json(
+        { message: "Nominal harus lebih dari 0" },
+        { status: 400 }
+      );
+    }
+
+    // Simpan transaksi ke PostgreSQL
+    // userId berasal dari SESSION, bukan dari frontend
+    const transaction = await db.orm.public.Transaction.create({
       type,
       amount,
       description,
-      createdAt: new Date().toISOString(),
-    };
-
-    transactions.push(transaction);
+      userId,
+    });
 
     return NextResponse.json(
       {
@@ -56,7 +90,7 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error(error);
+    console.error("CREATE TRANSACTION ERROR:", error);
 
     return NextResponse.json(
       { message: "Gagal menyimpan transaksi" },
@@ -65,8 +99,34 @@ export async function POST(request: Request) {
   }
 }
 
+// READ TRANSACTIONS
 export async function GET() {
-  return NextResponse.json({
-    transactions,
-  });
+  try {
+    const userId = await getCurrentUserId();
+
+    if (!userId) {
+      return NextResponse.json(
+        { message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    // Hanya mengambil transaksi milik user yang sedang login
+    const transactions = await db.orm.public.Transaction
+      .where((t) => t.userId.eq(userId))
+      .orderBy((t) => t.createdAt.desc())
+      .all();
+
+    return NextResponse.json(
+      { transactions },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("GET TRANSACTIONS ERROR:", error);
+
+    return NextResponse.json(
+      { message: "Gagal mengambil transaksi" },
+      { status: 500 }
+    );
+  }
 }

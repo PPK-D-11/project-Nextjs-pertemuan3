@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 export default function RegisterPage() {
   const router = useRouter();
 
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -20,6 +21,7 @@ export default function RegisterPage() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        name,
         email,
         password,
       }),
@@ -40,6 +42,20 @@ export default function RegisterPage() {
       <h1>Register Expense Tracker</h1>
 
       <form onSubmit={handleRegister}>
+        <div>
+          <label>Nama</label>
+          <br />
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Masukkan nama"
+            required
+          />
+        </div>
+
+        <br />
+
         <div>
           <label>Email</label>
           <br />
